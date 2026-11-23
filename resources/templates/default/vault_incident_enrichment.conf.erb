@@ -1,0 +1,18 @@
+filter {
+  if ![incident_uuid] {
+    incident_enrichment {
+      incident_fields => ["fromhost_ip"]
+      source => "Vault"
+      incidents_priority_filter => "<%= @vault_incidents_priority_filter %>"
+      field_scores => {
+        "fromhost_ip" => 100
+      }
+      field_map => {
+        "fromhost_ip" => "ip"
+      }
+      redis_hosts => <%= @redis_hosts %>
+      redis_port => <%= @redis_port %>
+      redis_password => "<%= @redis_password %>"
+    }
+  }
+}

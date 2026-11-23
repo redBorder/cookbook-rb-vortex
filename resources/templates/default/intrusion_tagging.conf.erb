@@ -1,0 +1,53 @@
+<% if @split_intrusion_vortex %>
+filter {
+  python {
+    code => "
+      import ipaddress
+
+      def to_network(cidr_str):
+          try:
+              return ipaddress.ip_network(cidr_str, strict=False)
+          except Exception:
+              return None
+
+      def parse_ip(ip_str):
+          if not ip_str:
+              return None
+          try:
+              return ipaddress.ip_address(str(ip_str).strip())
+          except Exception:
+              return None
+
+      def match_and_tag(ip_obj):
+          if not ip_obj:
+              return False
+          <% @sensors.each do |sensor_name, sensor_data| %>
+          subnets = [
+            <% sensor_data['subnets'].each_with_index do |subnet, index| %>
+              to_network('<%= subnet.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?') %>')<%= ',' unless index == sensor_data['subnets'].length - 1 %>
+            <% end %>
+          ]
+          for net in subnets:
+              if net and ip_obj in net:
+                  <% sensor_data['fields'].each do |field_name, field_value| %>
+                  event.set('<%= field_name %>', '<%= field_value.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').gsub("'", "\\\\'") %>')
+                  <% end %>
+                  return True
+          <% end %>
+          return False
+
+      if not event.get('organization'):
+          src_ip = parse_ip(event.get('src'))
+          if not match_and_tag(src_ip):
+              dst_ip = parse_ip(event.get('dst'))
+              if not match_and_tag(dst_ip):
+                  <% @default_sensor['fields'].each do |field_name, field_value| %>
+                  event.set('<%= field_name %>', '<%= field_value.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').gsub("'", "\\\\'") %>')
+                  <% end %>
+    "
+  }
+}
+<% else %>
+filter {
+}
+<% end %>

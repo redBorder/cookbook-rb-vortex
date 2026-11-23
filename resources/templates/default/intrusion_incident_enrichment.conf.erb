@@ -1,0 +1,12 @@
+filter {
+  if ![incident_uuid] {
+    incident_enrichment {
+      incident_fields => ["src","src_port", "dst", "dst_port"]
+      source => "Intrusion"
+      incidents_priority_filter => "<%= @intrusion_incidents_priority_filter %>"
+      redis_hosts => <%= @redis_hosts %>
+      redis_port => <%= @redis_port %>
+      redis_password => "<%= @redis_password %>"
+    }
+  }
+}

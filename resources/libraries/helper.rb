@@ -1,0 +1,41 @@
+module Vortex
+  module Helper
+    def bulkstats_monitors?(sensor_nodes)
+      return false unless sensor_nodes
+
+      sensor_nodes.each do |monitor|
+        next unless monitor['redborder']['monitors']
+
+        monitor['redborder']['monitors'].each do |dmonitor|
+          return true if dmonitor['system'].to_s.start_with?('bulkstats')
+        end
+      end
+
+      false
+    end
+
+    def redfish_monitors?(sensor_nodes)
+      return false unless sensor_nodes
+
+      sensor_nodes.each do |monitor|
+        next unless monitor['redborder']['monitors']
+
+        monitor['redborder']['monitors'].each do |dmonitor|
+          if dmonitor['system'].is_a?(String) && dmonitor['system'].split().first == 'redfish'
+            return true
+          end
+        end
+      end
+
+      false
+    end
+
+    def is_proxy?
+      node.role?('proxy-sensor')
+    end
+
+    def is_manager?
+      node.role?('manager')
+    end
+  end
+end

@@ -1,0 +1,47 @@
+name: Generate SBOM
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sbom:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Generate Gemfile.lock (if needed)
+        run: |
+          if [ -f Gemfile ] && [ ! -f Gemfile.lock ]; then
+            bundle lock || true
+          fi
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Generate SBOM
+        run: |
+          VERSION=$(grep -o 'version\s*["'\''][^"'\'']*' ./resources/metadata.rb 2>/dev/null | sed 's/version\s*["'\'']//;s/["'\'']//')
+          VERSION=${VERSION:-latest}
+          syft scan dir:. --source-name cookbook-vortex --source-version "$VERSION" -o spdx-json=cookbook-vortex-sbom.spdx.json
+
+      - name: Install Trivy
+        run: curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sudo sh -s -- -b /usr/local/bin
+
+      - name: Scan SBOM with Trivy
+        run: |
+          trivy sbom \
+            --exit-code 1 \
+            --severity CRITICAL,HIGH \
+            --ignore-unfixed \
+            cookbook-vortex-sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        if: ${{ !env.ACT }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cookbook-vortex-sbom-spdx
+          path: cookbook-vortex-sbom.spdx.json

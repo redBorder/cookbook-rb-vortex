@@ -1,0 +1,12 @@
+input {
+  kafka {
+    codec => json
+    bootstrap_servers => "kafka.service:9092"
+    topics => <%= @topics %>
+  }
+<% unless @pipeline_address.to_s.empty? %>
+  pipeline {
+    address => "<%= @pipeline_address %>"
+  }
+<% end %>
+}

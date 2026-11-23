@@ -1,0 +1,8 @@
+filter {
+  if [file_uri] {
+    python {
+      module => "ips"
+      function => "unescape_fields"
+    }
+  }
+}

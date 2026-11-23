@@ -1,0 +1,15 @@
+filter {
+  ips {
+    reputation_servers => <%= (@reputation_managers.nil? || @reputation_managers.empty?) ? "[\"rb-reputation.service.#{node["redborder"]["cdomain"]}\"]" : (@reputation_managers.first(5).map{|x| "#{x}.#{node["redborder"]["cdomain"]}:7777" }) %>
+  }
+
+ if [file_name] or [url] {
+   python {
+     module => "ips"
+     function => "unescape_fields"
+   }
+ }
+ mutate {
+    remove_field => ["@timestamp"]
+  }
+}

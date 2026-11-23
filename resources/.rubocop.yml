@@ -1,0 +1,5 @@
+Chef/Deprecations/ResourceWithoutUnifiedTrue:
+  Enabled: false
+
+Chef/Correctness/NodeNormal:
+  Enabled: false

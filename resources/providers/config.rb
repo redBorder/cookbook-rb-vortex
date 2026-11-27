@@ -41,7 +41,7 @@ action :add do
     clamscan_enabled = new_resource.clamscan_enabled
     cdomain = new_resource.cdomain
 
-    memcached_servers = node['redborder']['memcached']['hosts']
+    memcached_servers = node.dig('redborder', 'memcached', 'hosts') || []
 
     begin
       sensors_file = [ "#{vortex_dir}/sensors_data.yml", '/etc/redborder-vortex/sensors_data.yml' ].find { |f| ::File.exist?(f) }
@@ -63,6 +63,7 @@ action :add do
 
     dnf_package 'redborder-vortex' do
       action :upgrade
+      notifies :restart, 'service[redborder-vortex]', :delayed unless node['redborder']['leader_configuring']
     end
 
     execute 'create_group' do
@@ -148,8 +149,21 @@ action :add do
     end
 
     link "#{vortex_dir}/config.yml" do
-      to "#{vortex_dir}/vortex.yml"
-      link_type :symbolic
+      action :delete
+      only_if { ::File.symlink?("#{vortex_dir}/config.yml") }
+    end
+
+    # Daemon config (settings dir, Redis, PostgreSQL): read only at startup
+    template "#{vortex_dir}/config.yml" do
+      source 'config.yml.erb'
+      owner 'root'
+      group group
+      mode '0640'
+      sensitive true
+      cookbook 'rb-vortex'
+      variables(vortex_dir: vortex_dir, is_manager: is_manager, redis_port: redis_port,
+                redis_password: redis_password, db: db_redborder_secrets.to_hash)
+      notifies :restart, 'service[redborder-vortex]', :delayed unless node['redborder']['leader_configuring']
     end
 
     template "#{vortex_dir}/pipelines.yml" do
@@ -1210,6 +1224,7 @@ action :add do
         command "usermod -aG malware #{user}"
         only_if 'getent group malware'
         not_if "id -nG #{user} | grep -qw malware"
+        notifies :restart, 'service[redborder-vortex]', :delayed unless node['redborder']['leader_configuring']
       end
 
       directory '/usr/share/redborder-vortex' do
@@ -1225,6 +1240,12 @@ action :add do
         mode '0755'
         action :create
         only_if 'getent passwd webui'
+      end
+
+      execute 'move_yara_rules_from_logstash_path' do
+        command 'mv /usr/share/logstash/yara_rules/rules.yara /usr/share/redborder-vortex/yara_rules/rules.yara'
+        only_if { ::File.exist?('/usr/share/logstash/yara_rules/rules.yara') && ::Dir.exist?('/usr/share/redborder-vortex/yara_rules') }
+        not_if { ::File.exist?('/usr/share/redborder-vortex/yara_rules/rules.yara') }
       end
 
       file '/var/log/redborder-vortex/vortex-malware-sincedb.log' do
